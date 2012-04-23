@@ -373,7 +373,7 @@ Related variables: `kappa-sim-executable-path',
                            ((> events 0) (format " -e %s" events)))
                          (when points
                            (format " -p %s" points))
-                         " && sed -i s/^#// " output))
+                         " && sed -i s/^#// " output "&"))
         (buffer-name (concat "*Simulation (" (car (last (split-string input "/")))
 			     ") " (number-to-string *buffer-counter*) " *")))
 
