@@ -45,7 +45,6 @@
 ;; * Fix comment font-lock weirdness.
 ;; * Support for indentation and slashification. Hard.
 ;; * Documentation.
-;; * Remove redundant (?) font-lock variables.
 ;; * Remove dependency on sed(1).
 
 
@@ -145,7 +144,7 @@ variables in Font-Lock mode."
   :group 'kappa)
 
 
-;; Variable definitions from face definitions (FIXME: Redundant?)
+;; Variable definitions from face definitions
 (defvar kappa-keyword-face 'kappa-keyword-face
   "Face for highlighting Kappa keywords.")
 (defvar kappa-command-face 'kappa-command-face
@@ -172,46 +171,58 @@ variables in Font-Lock mode."
   "Face for highlighting string literals in Kappa mode.")
 
 
-;;; KaSim related customization variables
+;;; Simulation related customization variables
 
-(defcustom kappa-KaSim-executable-path "/usr/bin/KaSim"
-  "File system path to the KaSim executable."
+(defcustom kappa-sim-executable-path "/usr/bin/KaSim"
+  "File system path to the Kappa simulator executable (default is
+'/usr/bin/KaSim')."
   :type 'file
   :group 'kappa)
 
-(defcustom kappa-default-KaSim-time 200
-  "Default KaSim simulation duration."
+(defcustom kappa-default-sim-time 200
+  "Default simulation duration."
   :type 'number
   :group 'kappa)
 
-(defcustom kappa-default-KaSim-events 10000
-  "Default number of KaSim events to produce per simulation."
+(defcustom kappa-default-sim-events 10000
+  "Default number of events to produce per simulation."
   :type 'number
   :group 'kappa)
 
-(defcustom kappa-default-KaSim-points 500
-  "Default number of KaSim points to produce per simulation."
+(defcustom kappa-default-sim-points 500
+  "Default number of points to produce per simulation."
   :type 'number
   :group 'kappa)
+
 
 ;; Variables to remember the values of the arguments of previous
-;; invocation of `kappa-run-KaSim-job' and `kappa-plot-KaSim'.
-(defvar kappa-prev-KaSim-output ""
+;; invocation of `kappa-run-sim' and `kappa-plot-sim'.
+(defvar kappa-prev-sim-output-file ""
   "Value of the `output' or `file-path' argument during the
-  previous invocation of `kappa-run-KaSim-job' or
-  `kappa-plot-KaSim', respectively.")
-(defvar kappa-prev-KaSim-time kappa-default-KaSim-time
+  previous invocation of `kappa-run-sim' or
+  `kappa-plot-sim', respectively.")
+(defvar kappa-prev-sim-time kappa-default-sim-time
   "Value of the `time' argument during the previous invocation of
-  `kappa-run-KaSim-job'.")
-(defvar kappa-prev-KaSim-events kappa-default-KaSim-events
+  `kappa-run-sim'.")
+(defvar kappa-prev-sim-events kappa-default-sim-events
   "Value of the `events' argument during the previous invocation
-  of `kappa-run-KaSim-job'.")
-(defvar kappa-prev-KaSim-points kappa-default-KaSim-points
+  of `kappa-run-sim'.")
+(defvar kappa-prev-sim-points kappa-default-sim-points
   "Value of the `points' argument during the previous invocation
-  of `kappa-run-KaSim-job'.")
+  of `kappa-run-sim'.")
 (defvar kappa-prev-plot-columns "1"
   "Value of the `columns' argument during the previous invocation
-  of `kappa-plot-KaSim'.")
+  of `kappa-plot-sim'.")
+
+
+;;; Local key map
+
+(defvar kappa-mode-keymap (make-sparse-keymap)
+  "Kappa major mode keymap.")
+
+;; Add shortcuts for `kappa-run-sim' and `kappa-plot-sim'.
+(define-key kappa-mode-keymap "\C-c\C-r" 'kappa-run-sim)
+(define-key kappa-mode-keymap "\C-c\C-p" 'kappa-plot-sim)
 
 
 ;;; Main Kappa mode definition (using generic)
@@ -303,53 +314,59 @@ variables in Font-Lock mode."
   ;; File suffixes for which to activate this mode 
   '("\\.ka\\'")
 
-  nil   ;; other hooks to call
+  ;; Activate Kappa mode key map.
+  '(kappa-mode-setup)
 
   "Major mode for editing Kappa models.
 
+\\{kappa-mode-keymap}
 Turning on Kappa mode runs the hook `kappa-mode-hook'.
 ")
 
+(defun kappa-mode-setup ()
+  "Set up the Kappa major mode."
+  (use-local-map kappa-mode-keymap))   ;; Install local key map.
 
-;;; KaSim related functions.
+
+;;; Simulation related functions.
 
 (defvar *buffer-counter* 1)
 
-(defun kappa-run-KaSim-job (input output time events points)
+(defun kappa-run-sim (input output time events points)
   "Input:
   INPUT: File path to the Kappa model.
-  OUTPUT: Where KaSim will print the results.
+  OUTPUT: Path to the simulation output file.
   TIME: Time (integer). Default is the value of
-        `kappa-default-KaSim-time'.
+        `kappa-default-sim-time'.
   EVENTS: Number of events (integer). Default is the value of
-          `kappa-default-KaSim-events'.
+          `kappa-default-sim-events'.
   POINTS: Number of points (integer). Default is the value of
-          `kappa-default-KaSim-points'.
+          `kappa-default-sim-points'.
 
 Output: none.
 
-Side Effects: Creates *KaSim* buffer, print the arguments passed
-to *Messages* and run `kappa-KaSim-executable-path' in shell with
-the appropriate arguments.
+Side Effects: Creates *Simulation* buffer, print the arguments
+passed to *Messages* and run `kappa-sim-executable-path' in shell
+with the appropriate arguments.
 
-Related variables: `kappa-KaSim-executable-path',
-`kappa-default-KaSim-time', `kappa-default-KaSim-events',
-`kappa-default-KaSim-points'.
+Related variables: `kappa-sim-executable-path',
+`kappa-default-sim-time', `kappa-default-sim-events',
+`kappa-default-sim-points'.
 "
   (interactive
     (list (read-file-name "Input: " (file-truename buffer-file-name))
-          (read-file-name "Output: " kappa-prev-KaSim-output)
-          (read-number "Time: " kappa-prev-KaSim-time)
-          (read-number "Events: " kappa-prev-KaSim-events)
-          (read-number "Points: " kappa-prev-KaSim-points)))
+          (read-file-name "Output: " kappa-prev-sim-output-file)
+          (read-number "Time: " kappa-prev-sim-time)
+          (read-number "Events: " kappa-prev-sim-events)
+          (read-number "Points: " kappa-prev-sim-points)))
 
-  (setq kappa-prev-KaSim-output output)
-  (setq kappa-prev-KaSim-time time)
-  (setq kappa-prev-KaSim-events events)
-  (setq kappa-prev-KaSim-points points)
+  (setq kappa-prev-sim-output-file output)
+  (setq kappa-prev-sim-time time)
+  (setq kappa-prev-sim-events events)
+  (setq kappa-prev-sim-points points)
 
   ;; FIXME: Would be nice to eliminate the dependency on sed(1).
-  (let ((command (concat kappa-KaSim-executable-path " -i " input
+  (let ((command (concat kappa-sim-executable-path " -i " input
                          " -o " output
                          (cond
                            ((> time 0)   (format " -t %s" time))
@@ -357,7 +374,7 @@ Related variables: `kappa-KaSim-executable-path',
                          (when points
                            (format " -p %s" points))
                          " && sed -i s/^#// " output))
-        (buffer-name (concat "*KaSim (" (car (last (split-string input "/")))
+        (buffer-name (concat "*Simulation (" (car (last (split-string input "/")))
 			     ") " (number-to-string *buffer-counter*) " *")))
 
     (when (file-exists-p output)
@@ -367,7 +384,7 @@ Related variables: `kappa-KaSim-executable-path',
               (error "%s" (concat "Output file " output " has not been "
 				  "overwritten"))))
 
-    (message "KaSim command executed: %s\n" command) ; save the command to *Message* buffer
+    (message "Simulation command executed: %s\n" command) ; save the command to *Message* buffer
     (shell-command command (get-buffer-create buffer-name))
 
     (setq *buffer-counter* (+ 1 *buffer-counter*))
@@ -376,14 +393,14 @@ Related variables: `kappa-KaSim-executable-path',
 
 ;;; Gnuplot related functions.
 
-(defun kappa-plot-KaSim (&optional file-path columns)
-  "Simple function for plotting a file.
+(defun kappa-plot-sim (&optional file-path columns)
+  "Simple function for plotting a Kappa simulation file.
 
   FILE-PATH is the full path to a file that can be read by
             gnuplot.  The first row is expected to contain the
             headers for each column.
 
-  COLUMNS is a string containing the columns to be ploted
+  COLUMNS is a string containing the columns to be plotted
           separated by space.
 
 By default the following options would be set in gnuplot:
@@ -397,8 +414,8 @@ find it at
 "
 
   (interactive
-   (list (read-file-name "KaSim's output file: "
-                          kappa-prev-KaSim-output)
+   (list (read-file-name "Simulation output file: "
+                          kappa-prev-sim-output-file)
          (read-string "Columns separated by space: "
                       kappa-prev-plot-columns)))
 
@@ -408,7 +425,7 @@ find it at
       (error "Could not find Gnuplot mode! Gnuplot mode is \
 required for plotting.")
 
-    (setq kappa-prev-KaSim-output file-path)
+    (setq kappa-prev-sim-output-file file-path)
     (setq kappa-prev-plot-columns columns)
 
     (gnuplot-send-string-to-gnuplot
