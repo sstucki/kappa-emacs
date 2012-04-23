@@ -1,13 +1,12 @@
 ;;; kappa.el -- major mode for Kappa models
 
-;; Copyright (C) 2012 Sandro Stucki
+;; Copyright (C) 2012 Sandro Stucki, Sebastian Jaramillo,
+;;                    Ricardo Honorato-Zimmer
 
 ;; Authors:
 ;;   Sandro Stucki <sandro.stucki@ed.ac.uk>
-
-;; Contributors:
-;;   Sebastian Jaramillo
-;;   Ricardo Honorato-Zimmer
+;;   Sebastian Jaramillo <sebajarar@gmail.com>
+;;   Ricardo Honorato-Zimmer <rikardo.horo@gmail.com>
 
 
 ;; This file is not part of GNU Emacs.
@@ -44,9 +43,10 @@
 ;;; To Do:
 
 ;; * Fix comment font-lock weirdness.
-;; * Support for indentation and slashification.  Hard.
+;; * Support for indentation and slashification. Hard.
 ;; * Documentation.
-
+;; * Remove redundant (?) font-lock variables.
+;; * Remove dependency on sed(1).
 
 
 ;;; Customization stuff
@@ -145,7 +145,7 @@ variables in Font-Lock mode."
   :group 'kappa)
 
 
-;; Variable definitions from face definitions
+;; Variable definitions from face definitions (FIXME: Redundant?)
 (defvar kappa-keyword-face 'kappa-keyword-face
   "Face for highlighting Kappa keywords.")
 (defvar kappa-command-face 'kappa-command-face
@@ -170,6 +170,48 @@ variables in Font-Lock mode."
   "Face for highlighting Kappa internal state names.")
 (defvar kappa-string-face 'kappa-string-face
   "Face for highlighting string literals in Kappa mode.")
+
+
+;;; KaSim related customization variables
+
+(defcustom kappa-KaSim-executable-path "/usr/bin/KaSim"
+  "File system path to the KaSim executable."
+  :type 'file
+  :group 'kappa)
+
+(defcustom kappa-default-KaSim-time 200
+  "Default KaSim simulation duration."
+  :type 'number
+  :group 'kappa)
+
+(defcustom kappa-default-KaSim-events 10000
+  "Default number of KaSim events to produce per simulation."
+  :type 'number
+  :group 'kappa)
+
+(defcustom kappa-default-KaSim-points 500
+  "Default number of KaSim points to produce per simulation."
+  :type 'number
+  :group 'kappa)
+
+;; Variables to remember the values of the arguments of previous
+;; invocation of `kappa-run-KaSim-job' and `kappa-plot-KaSim'.
+(defvar kappa-prev-KaSim-output ""
+  "Value of the `output' or `file-path' argument during the
+  previous invocation of `kappa-run-KaSim-job' or
+  `kappa-plot-KaSim', respectively.")
+(defvar kappa-prev-KaSim-time kappa-default-KaSim-time
+  "Value of the `time' argument during the previous invocation of
+  `kappa-run-KaSim-job'.")
+(defvar kappa-prev-KaSim-events kappa-default-KaSim-events
+  "Value of the `events' argument during the previous invocation
+  of `kappa-run-KaSim-job'.")
+(defvar kappa-prev-KaSim-points kappa-default-KaSim-points
+  "Value of the `points' argument during the previous invocation
+  of `kappa-run-KaSim-job'.")
+(defvar kappa-prev-plot-columns "1"
+  "Value of the `columns' argument during the previous invocation
+  of `kappa-plot-KaSim'.")
 
 
 ;;; Main Kappa mode definition (using generic)
@@ -265,65 +307,65 @@ variables in Font-Lock mode."
 
   "Major mode for editing Kappa models.
 
-Turning on Kappa mode runs the hook `kappa-mode-hook'.")
+Turning on Kappa mode runs the hook `kappa-mode-hook'.
+")
 
 
-;; ***********************************************
+;;; KaSim related functions.
 
-;; ----------------------- To Do
-;; - Fix the default vars issue
-
-;; ----------------------- Variables
-;; Location of KaSim executable
-(defvar *KaSim-executable-path* "/usr/bin/KaSim")
 (defvar *buffer-counter* 1)
 
-;; Note: As we are using interactive now these vars became obsolete
-;;(defvar *default-KaSim-events* "10000")
-;;(defvar *default-KaSim-points* "500")
-
-;; ----------------------- KaSim related functions.
-
-(defun run-KaSim-job (input output time events points)
+(defun kappa-run-KaSim-job (input output time events points)
   "Input:
   INPUT: File path to the Kappa model.
-  OUTPUT: Where KaSim will print the results
-  TIME: Time (integer)
-  EVENTS: Number of events (integer)
-  POINTS: Number of points (integer)
+  OUTPUT: Where KaSim will print the results.
+  TIME: Time (integer). Default is the value of
+        `kappa-default-KaSim-time'.
+  EVENTS: Number of events (integer). Default is the value of
+          `kappa-default-KaSim-events'.
+  POINTS: Number of points (integer). Default is the value of
+          `kappa-default-KaSim-points'.
 
 Output: none.
 
-Side Effects: Creates *KaSim* buffer, print
-the arguments passed to *Messages* and run
-*KaSim-executable-path* in shell.
+Side Effects: Creates *KaSim* buffer, print the arguments passed
+to *Messages* and run `kappa-KaSim-executable-path' in shell with
+the appropriate arguments.
 
-Related variables: *KaSim-executable-path*
+Related variables: `kappa-KaSim-executable-path',
+`kappa-default-KaSim-time', `kappa-default-KaSim-events',
+`kappa-default-KaSim-points'.
 "
   (interactive
     (list (read-file-name "Input: " (file-truename buffer-file-name))
-          (read-file-name "Output: ")
-          (read-number "Time: ")
-          (read-number "Events: ")
-          (read-number "Points: ")))
+          (read-file-name "Output: " kappa-prev-KaSim-output)
+          (read-number "Time: " kappa-prev-KaSim-time)
+          (read-number "Events: " kappa-prev-KaSim-events)
+          (read-number "Points: " kappa-prev-KaSim-points)))
 
-  ;;(setq *default-KaSim-events* events)
-  ;;(setq *default-KaSim-points* points)
-  ;;(setq *default-KaSim-output* output)
+  (setq kappa-prev-KaSim-output output)
+  (setq kappa-prev-KaSim-time time)
+  (setq kappa-prev-KaSim-events events)
+  (setq kappa-prev-KaSim-points points)
 
-  (let ((command (concat *KaSim-executable-path* " -i " input " -o " output
+  ;; FIXME: Would be nice to eliminate the dependency on sed(1).
+  (let ((command (concat kappa-KaSim-executable-path " -i " input
+                         " -o " output
                          (cond
                            ((> time 0)   (format " -t %s" time))
                            ((> events 0) (format " -e %s" events)))
                          (when points
                            (format " -p %s" points))
                          " && sed -i s/^#// " output))
-        (buffer-name (concat "*KaSim (" (car (last (split-string input "/"))) ") " (number-to-string *buffer-counter*) " *")))
+        (buffer-name (concat "*KaSim (" (car (last (split-string input "/")))
+			     ") " (number-to-string *buffer-counter*) " *")))
 
     (when (file-exists-p output)
-          (if (y-or-n-p (concat "Would you like to delete the file " output " to run the simulation? "))
+          (if (y-or-n-p (concat "File '" output "' exists. Would you like to "
+				"delete it to run the simulation?"))
               (delete-file output)
-              (error "%s" (concat "Output file " output " has not been overwritten"))))
+              (error "%s" (concat "Output file " output " has not been "
+				  "overwritten"))))
 
     (message "KaSim command executed: %s\n" command) ; save the command to *Message* buffer
     (shell-command command (get-buffer-create buffer-name))
@@ -332,45 +374,60 @@ Related variables: *KaSim-executable-path*
     (format (concat "Done! See " buffer-name " buffer for details"))))
 
 
-;; ----------------------- Gnuplot related code.
+;;; Gnuplot related functions.
 
-(eval-and-compile
-  (condition-case ()
-    (progn
-      ;; This part requires the installation of gnuplot-mode!
-      ;; https://github.com/bruceravel/gnuplot-mode/
-      (require 'gnuplot)
+(defun kappa-plot-KaSim (&optional file-path columns)
+  "Simple function for plotting a file.
 
-      (defun plot-KaSim (&optional file-path columns)
-        "Simple function for plotting a file.
-  FILE-PATH is the full path to a file that can be read by gnuplot.
-            The first row is expected to contain the headers for each column.
-  COLUMNS is a string containing the columns to be ploted separated by space.
+  FILE-PATH is the full path to a file that can be read by
+            gnuplot.  The first row is expected to contain the
+            headers for each column.
+
+  COLUMNS is a string containing the columns to be ploted
+          separated by space.
 
 By default the following options would be set in gnuplot:
 autoscale, xtic auto, ytic auto, key autotitle columnhead,
 ylabel \"Number of Molecules\", xlabel \"Time\"
+
+This function requires the installation of gnuplot-mode. You can
+find it at
+
+  https://github.com/bruceravel/gnuplot-mode/
 "
-        (interactive ;"fKaSim's output file: \nsColumns separated by space: "
-          (list (read-file-name "KaSim's output file: ")
-                (read-string "Columns separated by space: " "1")))
-        (gnuplot-send-string-to-gnuplot
-         (concat "set autoscale\n"
-                 "set xtic auto\n"
-                 "set ytic auto\n"
-                 "set key autotitle columnhead\n"
-                 "set ylabel \"Number of Molecules\"\n"
-                 "set xlabel \"Time\"\n"
-                 "set title \"" (car (last (split-string file-path "/"))) "\"\n"
-                 "plot "
-                 (let ((cols (mapcar (lambda (x)
-                                       (+ 2 (string-to-number x)))
-                                     (split-string columns))))
-                   (mapconcat (lambda (n)
-                                (concat "\'" file-path "\' using 1:" (number-to-string n) " with lines"))
-                              cols ", ")) "\n")
-         nil)))
-    nil))
+
+  (interactive
+   (list (read-file-name "KaSim's output file: "
+                          kappa-prev-KaSim-output)
+         (read-string "Columns separated by space: "
+                      kappa-prev-plot-columns)))
+
+  ;; This part requires the installation of gnuplot-mode!
+  ;; https://github.com/bruceravel/gnuplot-mode/
+  (if (not (require 'gnuplot nil t))
+      (error "Could not find Gnuplot mode! Gnuplot mode is \
+required for plotting.")
+
+    (setq kappa-prev-KaSim-output file-path)
+    (setq kappa-prev-plot-columns columns)
+
+    (gnuplot-send-string-to-gnuplot
+     (concat "set autoscale\n"
+             "set xtic auto\n"
+             "set ytic auto\n"
+             "set key autotitle columnhead\n"
+             "set ylabel \"Number of Molecules\"\n"
+             "set xlabel \"Time\"\n"
+             "set title \"" (car (last (split-string file-path "/"))) "\"\n"
+             "plot "
+             (let ((cols (mapcar (lambda (x)
+                                   (+ 2 (string-to-number x)))
+                                 (split-string columns))))
+               (mapconcat (lambda (n)
+                            (concat "\'" file-path "\' using 1:"
+                                    (number-to-string n) " with lines"))
+                          cols ", ")) "\n")
+     nil)))
 
 
 (provide 'kappa)
