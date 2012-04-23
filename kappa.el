@@ -184,82 +184,77 @@ variables in Font-Lock mode."
         ;; Common lexical sub-expressions used in keywords
         ((id "[A-Za-z0-9][A-Za-z0-9_-]*")   ;; IDs/names as defined in
                                             ;; the Kappa spec
-         (idx "[A-Za-z][A-Za-z0-9_-]*")     ;; IDs/names without the
-                                            ;; initial digits
          (num "[0-9]+")                     ;; Integer numerals
          (ws "[ \t]*"))                     ;; Whitespace
 
-      (append
+      (list
 
        ;; Keywords
-       (kappa-make-font-lock-keyword-list
-        '("^%agent:" "^%var:" "^%plot:" "^%obs:" "^%init:" "^%mod:")
+       (cons
+        (regexp-opt
+         '("%agent:" "%var:" "%plot:" "%obs:" "%init:" "%mod:"))
         kappa-keyword-face)
 
        ;; Commands
-       (kappa-make-font-lock-keyword-list
-        '("$ADD" "$DEL" "$SNAPSHOT" "$STOP")
+       (cons
+        (regexp-opt
+         '("$ADD" "$DEL" "$SNAPSHOT" "$STOP"))
         kappa-command-face)
 
        ;; Built-in functions
-       (kappa-make-font-lock-keyword-list
-        '("\\[not\\]" "\\[log\\]" "\\[sin\\]" "\\[cos\\]" "\\[tan\\]"
-          "\\[sqrt\\]" "\\[mod\\]" "\\[exp\\]" "\\[int\\]")
+       (cons
+        (regexp-opt
+         '("[not]" "[log]" "[sin]" "[cos]" "[tan]" "[sqrt]" "[mod]"
+           "[exp]" "[int]"))
         kappa-builtin-face)
 
        ;; Symbolic numerical constants
-       (kappa-make-font-lock-keyword-list
-        '("\\[E\\]" "\\[T\\]" "\\[inf\\]" "\\[pi\\]" "\\[emax\\]"
-          "\\[tmax\\]" "\\[true\\]" "\\[false\\]")
+       (cons
+        (regexp-opt
+         '("[E]" "[T]" "[inf]" "[pi]" "[emax]" "[tmax]" "[true]"
+           "[false]"))
         kappa-constant-face)
 
-       (list
+       ;; Agent interface symbols
+       '("[?!~]" . kappa-interface-symbol-face)
 
-        ;; Agent interface symbols
-        '("[?!~]" . kappa-interface-symbol-face)
+       ;; Internal state names
+       (list (concat "~" ws "\\(" id "\\)")
+             1 kappa-internal-state-face)
 
-        ;; Internal state names
-        (list (concat "~" ws "\\(" id "\\)")
-              1 kappa-internal-state-face)
+       ;; Link labels
+       (list (concat "!" ws "\\(" num          ;; Numeric label
+                     "\\|" id ws "\\." ws id   ;; Remote site name
+                     "\\|" ws "_\\)")          ;; Wildcard
+             1 kappa-link-label-face)
 
-        ;; Link labels
-        (list (concat "!" ws "\\(" num          ;; Numeric label
-                      "\\|" id ws "\\." ws id   ;; Remote site name
-                      "\\|" ws "_\\)")          ;; Wildcard
-              1 kappa-link-label-face)
+       ;; Variable names
+       '("'[^'\n]+'" . kappa-string-face)
 
-        ;; Variable names
-        '("'[^'\n]+'" . kappa-string-face)
+       ;; Agent names followed by an interface spec and site names
+       (list (concat "\\(" id "\\)" ws "(")      ;; Agents
+             '(1 kappa-agent-name-face)
+             (list                                ;; Site interface
+              (concat "\\=" ws "\\(" id "\\)[^,)\n]*"
+                      "\\(," ws "\\([^A-Za-z0-9,)\n][^,)\n]*\\)?\\)*")
+              nil nil
+              '(1 kappa-site-name-face)))
 
-        ;; Agent names followed by an interface spec and site names
-        (list (concat "\\(" id "\\)" ws "(")      ;; Agents
-              '(1 kappa-agent-name-face)
-              (list                                ;; Site interface
-               (concat "\\=" ws "\\(" id "\\)[^,)\n]*"
-                       "\\(," ws "\\([^A-Za-z0-9,)\n][^,)\n]*\\)?\\)*")
-               nil nil
-               '(1 kappa-site-name-face)))
+       ;; Numerals
+       (cons (concat "\\<\\(\\(" num "\\)?\\." num "\\([Ee][+-]?" num
+                     "\\)?\\|" num "\\)\\>")
+             kappa-constant-face)
 
-        ;; Numerals
-        (cons (concat num "\\|\\(" num "\\)?\\." num
-                      "\\([Ee][+-]?" num "\\)?")
-              kappa-constant-face)
-
-        ;; Agent names not followed by an interface spec (all
-        ;; remaining IDs without initial digits)
-        (cons idx kappa-agent-name-face)
-        ;; '("\\.\\.\\." . kappa-agent-name-face)
-        )
+       ;; Agent names not followed by an interface spec (all
+       ;; remaining IDs)
+       (cons id kappa-agent-name-face)
+       ;; '("\\.\\.\\." . kappa-agent-name-face)
 
        ;; Rule operators
-       (kappa-make-font-lock-keyword-list
-        '("@" "->")
-        kappa-rule-operator-face)
+       '("@\\|->" . kappa-rule-operator-face)
 
        ;; Math operators
-       (kappa-make-font-lock-keyword-list
-        '("&&" "||" "[+*/^:=<>-]")
-        kappa-math-operator-face))))
+       '("&&\\|||\\|[+*/^:=<>-]" . kappa-math-operator-face))))
 
   ;; File suffixes for which to activate this mode 
   '("\\.ka\\'")
@@ -270,13 +265,6 @@ variables in Font-Lock mode."
 
 Turning on Kappa mode runs the hook `kappa-mode-hook'.")
 
-
-;;; Helper functions
-
-(defun kappa-make-font-lock-keyword-list (keywords face)
-  "Make a font-lock keyword list containing a matching each
-keyword in the list `keywords' to the face spec `face'."
-  (mapcar (lambda (k) (cons k face)) keywords))
 
 (provide 'kappa)
 
