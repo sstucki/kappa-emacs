@@ -45,7 +45,9 @@
 ;; * Fix comment font-lock weirdness.
 ;; * Support for indentation and slashification. Hard.
 ;; * Documentation.
-;; * Remove dependency on sed(1).
+;; * Remove dependency on sed(1). Yes, this is a hack. Sorry.
+;;   To solve this the best way would be to ask Jean to remove
+;;   the '#' from KaSim's output
 
 
 ;;; Customization stuff
@@ -332,6 +334,12 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
 (defvar *buffer-counter* 1)
 
+(defun get-dirname (path)
+  (mapconcat 'identity (butlast (split-string path "/") 1) "/"))
+
+(defun get-filename (path)
+  (car (last (split-string path "/"))))
+
 (defun kappa-run-sim (input output time events points)
   "Input:
   INPUT: File path to the Kappa model.
@@ -367,22 +375,23 @@ Related variables: `kappa-sim-executable-path',
 
   ;; FIXME: Would be nice to eliminate the dependency on sed(1).
   (let ((command (concat kappa-sim-executable-path " -i " input
-                         " -o " output
+                         " -o " (get-filename output)
+                         " -d " (get-dirname  output)
                          (cond
                            ((> time 0)   (format " -t %s" time))
                            ((> events 0) (format " -e %s" events)))
                          (when points
                            (format " -p %s" points))
                          " && sed -i s/^#// " output "&"))
-        (buffer-name (concat "*Simulation (" (car (last (split-string input "/")))
-			     ") " (number-to-string *buffer-counter*) " *")))
+        (buffer-name (concat "*Simulation (" (get-filename input) ") "
+                             (number-to-string *buffer-counter*) "*")))
 
     (when (file-exists-p output)
           (if (y-or-n-p (concat "File '" output "' exists. Would you like to "
-				"delete it to run the simulation?"))
+                                "delete it to run the simulation?"))
               (delete-file output)
               (error "%s" (concat "Output file " output " has not been "
-				  "overwritten"))))
+                                  "overwritten"))))
 
     (message "Simulation command executed: %s\n" command) ; save the command to *Message* buffer
     (shell-command command (get-buffer-create buffer-name))
@@ -435,7 +444,7 @@ required for plotting.")
              "set key autotitle columnhead\n"
              "set ylabel \"Number of Molecules\"\n"
              "set xlabel \"Time\"\n"
-             "set title \"" (car (last (split-string file-path "/"))) "\"\n"
+             "set title \"" (get-filename file-path) "\"\n"
              "plot "
              (let ((cols (mapcar (lambda (x)
                                    (+ 2 (string-to-number x)))
