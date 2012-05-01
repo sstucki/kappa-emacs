@@ -36,8 +36,9 @@
 
 ;;; Known bugs/limitations:
 
-;; * There seems to be a bug that cause some version of Emacs to
-;;   fontify the entire buffer with font-lock-comment-face.
+;; * There seems to be a bug when using Kappa mode at the same time as
+;;   CEDET causing Emacs to fontify the entire buffer with
+;;   font-lock-comment-face.
 
 
 ;;; To Do:
@@ -363,7 +364,9 @@ Related variables: `kappa-sim-executable-path',
 "
   (interactive
     (list (read-file-name "Input: " (file-truename buffer-file-name))
-          (read-file-name "Output: " kappa-prev-sim-output-file)
+          (read-file-name "Output: "
+                          (concat (get-dirname kappa-prev-sim-output-file) "/")
+                          nil nil (get-filename kappa-prev-sim-output-file))
           (read-number "Time: " kappa-prev-sim-time)
           (read-number "Events: " kappa-prev-sim-events)
           (read-number "Points: " kappa-prev-sim-points)))
@@ -424,7 +427,8 @@ find it at
 
   (interactive
    (list (read-file-name "Simulation output file: "
-                          kappa-prev-sim-output-file)
+                         (concat (get-dirname kappa-prev-sim-output-file) "/")
+                          nil nil (get-filename kappa-prev-sim-output-file))
          (read-string "Columns separated by space: "
                       kappa-prev-plot-columns)))
 
