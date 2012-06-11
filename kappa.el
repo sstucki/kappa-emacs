@@ -146,8 +146,8 @@ variables in Font-Lock mode."
   :group 'kappa)
 
 (defface kappa-cellbreak-face
-  '((t (:background (face-background font-lock-string-face)
-		    :foreground (face-foreground font-lock-string-face)
+  '((t (:background (face-background font-lock-comment-face)
+		    :foreground (face-foreground font-lock-comment-face)
 		    :overline t
 		    :bold t)))
   "*Face to use for cellbreak ## lines."
