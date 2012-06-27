@@ -58,6 +58,7 @@
   "Kappa mode customization."
   :group 'languages)
 
+
 ;; Customization of fontification
 
 (defface kappa-keyword-face
@@ -146,14 +147,12 @@ variables in Font-Lock mode."
   :group 'kappa)
 
 (defface kappa-cellbreak-face
-  (list (list t (list :background (face-background font-lock-comment-face)
-		      :foreground (face-foreground font-lock-comment-face)
-		      :overline t
-		      :bold t)))
-  "*Face to use for cellbreak ## lines."
+  '((t :inherit font-lock-comment-face
+       :overline t
+       :bold t))
+  "Face to use for cellbreak ## comment lines in Font-Lock mode."
   :group 'faces
-  :group 'kappa
-  )
+  :group 'kappa)
 
 ;; Variable definitions from face definitions
 (defvar kappa-keyword-face 'kappa-keyword-face
@@ -181,7 +180,8 @@ variables in Font-Lock mode."
 (defvar kappa-string-face 'kappa-string-face
   "Face for highlighting string literals in Kappa mode.")
 (defvar kappa-cellbreak-face 'kappa-cellbreak-face
-  "Face for making a cellbrake on ## lines.")
+  "Face for making a cellbreak on ## comment lines in Kappa mode.")
+
 
 ;;; Simulation related customization variables
 
@@ -205,12 +205,6 @@ variables in Font-Lock mode."
   "Default number of points to produce per simulation."
   :type 'number
   :group 'kappa)
-
-(defcustom kappa-comment-region-s "% $$$ "
-  "*String inserted by \\[kappa-comment-region] at start of each line in \
-region."
-  :group 'kappa
-  :type 'string)
 
 
 ;; Variables to remember the values of the arguments of previous
@@ -248,9 +242,9 @@ region."
 (define-generic-mode kappa-mode
 
   '(?#)      ;; Comments start with '#'
-  
-  nil ;; Handle keywords using font-lock rules (see below)
-  
+
+  nil        ;; Handle keywords using font-lock rules (see below)
+
   ;; Rules for syntax highlighting (font-lock)
   (eval-when-compile
     (let
@@ -263,8 +257,8 @@ region."
       (list
 
        ;; ## comments
-       (list "^\\s-*\\(\##[^\n]*\n\\)" '(1 kappa-cellbreak-face append))
-       
+       '("^\\s-*\\(\##.*\\)$" 1 kappa-cellbreak-face t)
+
        ;; Keywords
        (cons
         (regexp-opt
@@ -325,7 +319,7 @@ region."
        ;; remaining IDs)
        (cons id kappa-agent-name-face)
        ;; '("\\.\\.\\." . kappa-agent-name-face)
-       
+
        ;; Rule operators
        '("@\\|->" . kappa-rule-operator-face)
 
@@ -348,22 +342,6 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
   "Set up the Kappa major mode."
   (use-local-map kappa-mode-keymap))   ;; Install local key map.
 
-;;; Font lock tweaking
-
-(defun kappa-font-lock-adjustments ()
-  "Some changes to font-lock. Inspired in matlab-mode."
-  (progn 
-    ;; cellbreak variable faces
-    (cond ((facep 'font-comment-face)
-	   (copy-face 'font-lock-comment-face 'kappa-cellbreak-face))
-	  (t
-	   (make-face 'kappa-cellbreak-face)))
-    (set-face-bold-p 'kappa-cellbreak-face t)
-    (condition-case nil
-	(set-face-attribute 'kappa-cellbreak-face nil :overline t)
-      (error nil))))
-
-(add-hook 'font-lock-mode-hook 'kappa-font-lock-adjustments)
 
 ;;; Simulation related functions.
 
