@@ -154,7 +154,7 @@ variables in Font-Lock mode."
   :group 'faces
   :group 'kappa)
 
-;; Variable definitions from face definitions
+;; Buffer-local variable definitions from face definitions
 (defvar kappa-keyword-face 'kappa-keyword-face
   "Face for highlighting Kappa keywords.")
 (defvar kappa-command-face 'kappa-command-face
@@ -207,24 +207,24 @@ variables in Font-Lock mode."
   :group 'kappa)
 
 
-;; Variables to remember the values of the arguments of previous
-;; invocation of `kappa-run-sim' and `kappa-plot-sim'.
+;; Buffer-local variables to remember the values of the arguments of
+;; previous invocation of `kappa-run-sim' and `kappa-plot-sim'.
 (defvar kappa-prev-sim-output-file ""
   "Value of the `output' or `file-path' argument during the
-  previous invocation of `kappa-run-sim' or
-  `kappa-plot-sim', respectively.")
+previous invocation of `kappa-run-sim' or `kappa-plot-sim',
+respectively.")
 (defvar kappa-prev-sim-time kappa-default-sim-time
   "Value of the `time' argument during the previous invocation of
-  `kappa-run-sim'.")
+`kappa-run-sim'.")
 (defvar kappa-prev-sim-events kappa-default-sim-events
   "Value of the `events' argument during the previous invocation
-  of `kappa-run-sim'.")
+of `kappa-run-sim'.")
 (defvar kappa-prev-sim-points kappa-default-sim-points
   "Value of the `points' argument during the previous invocation
-  of `kappa-run-sim'.")
+of `kappa-run-sim'.")
 (defvar kappa-prev-plot-columns "1"
   "Value of the `columns' argument during the previous invocation
-  of `kappa-plot-sim'.")
+of `kappa-plot-sim'.")
 
 
 ;;; Local key map
@@ -340,18 +340,44 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
 (defun kappa-mode-setup ()
   "Set up the Kappa major mode."
-  (use-local-map kappa-mode-keymap))   ;; Install local key map.
+
+  ;; Make variables buffer-local and set standard output file.
+  (mapc 'make-local-variable
+        '(kappa-keyword-face
+          kappa-command-face
+          kappa-rule-operator-face
+          kappa-math-operator-face
+          kappa-interface-symbol-face
+          kappa-builtin-face
+          kappa-constant-face
+          kappa-agent-name-face
+          kappa-site-name-face
+          kappa-link-label-face
+          kappa-internal-state-face
+          kappa-string-face
+          kappa-cellbreak-face
+          kappa-prev-sim-output-file
+          kappa-prev-sim-time
+          kappa-prev-sim-events
+          kappa-prev-sim-points
+          kappa-prev-plot-columns
+          kappa-mode-keymap
+          kappa-sim-buffer-counter))
+
+  ;; Set the default output file.
+  (setq kappa-prev-sim-output-file
+        (concat (get-abs-dirname buffer-file-name) "data.out"))
+
+  ;; Install the local key map.
+  (use-local-map kappa-mode-keymap))
 
 
 ;;; Simulation related functions.
 
-(defvar *buffer-counter* 1)
+(defvar kappa-sim-buffer-counter 1)
 
-(defun get-dirname (path)
-  (mapconcat 'identity (butlast (split-string path "/") 1) "/"))
-
-(defun get-filename (path)
-  (car (last (split-string path "/"))))
+(defun get-abs-dirname (path) 
+  (file-name-directory (file-truename path)))
 
 (defun kappa-run-sim (input output time events points)
   "Input:
@@ -375,10 +401,14 @@ Related variables: `kappa-sim-executable-path',
 `kappa-default-sim-points'.
 "
   (interactive
-    (list (read-file-name "Input: " (file-truename buffer-file-name))
-          (read-file-name "Output: "
-                          (concat (get-dirname kappa-prev-sim-output-file) "/")
-                          nil nil (get-filename kappa-prev-sim-output-file))
+    (list (expand-file-name
+           (read-file-name
+            "Input: " (file-truename buffer-file-name)
+            (file-truename buffer-file-name) 'confirm))
+          (expand-file-name
+           (read-file-name
+            "Output: " (file-truename kappa-prev-sim-output-file)
+            (file-truename kappa-prev-sim-output-file)))
           (read-number "Time: " kappa-prev-sim-time)
           (read-number "Events: " kappa-prev-sim-events)
           (read-number "Points: " kappa-prev-sim-points)))
@@ -390,19 +420,20 @@ Related variables: `kappa-sim-executable-path',
 
   ;; FIXME: Would be nice to eliminate the dependency on sed(1).
   (let ((command (concat kappa-sim-executable-path " -i " input
-                         " -o " (get-filename output)
-                         " -d " (get-dirname  output)
+                         " -o " (file-name-nondirectory output)
+                         " -d " (get-abs-dirname output)
                          (cond
                            ((> time 0)   (format " -t %s" time))
                            ((> events 0) (format " -e %s" events)))
                          (when points
                            (format " -p %s" points))
                          " && sed -i s/^#// " output "&"))
-        (buffer-name (concat "*Simulation (" (get-filename input) ") "
-                             (number-to-string *buffer-counter*) "*")))
+        (buffer-name (concat "*Simulation (" (file-name-nondirectory input)
+                             ") " (number-to-string kappa-sim-buffer-counter)
+                             "*")))
 
     (when (file-exists-p output)
-          (if (y-or-n-p (concat "File '" output "' exists. Would you like to "
+          (if (y-or-n-p (concat "Output file '" output "' exists. Would you like to "
                                 "delete it to run the simulation?"))
               (delete-file output)
               (error "%s" (concat "Output file " output " has not been "
@@ -411,7 +442,7 @@ Related variables: `kappa-sim-executable-path',
     (message "Simulation command executed: %s\n" command) ; save the command to *Message* buffer
     (shell-command command (get-buffer-create buffer-name))
 
-    (setq *buffer-counter* (+ 1 *buffer-counter*))
+    (setq kappa-sim-buffer-counter (+ 1 kappa-sim-buffer-counter))
     (format (concat "Done! See " buffer-name " buffer for details"))))
 
 
@@ -438,9 +469,11 @@ find it at
 "
 
   (interactive
-   (list (read-file-name "Simulation output file: "
-                         (concat (get-dirname kappa-prev-sim-output-file) "/")
-                          nil nil (get-filename kappa-prev-sim-output-file))
+   (list (expand-file-name
+          (read-file-name
+           "Simulation output file: "
+           (file-truename kappa-prev-sim-output-file)
+           (file-truename kappa-prev-sim-output-file) 'confirm))
          (read-string "Columns separated by space: "
                       kappa-prev-plot-columns)))
 
@@ -460,7 +493,7 @@ required for plotting.")
              "set key autotitle columnhead\n"
              "set ylabel \"Number of Molecules\"\n"
              "set xlabel \"Time\"\n"
-             "set title \"" (get-filename file-path) "\"\n"
+             "set title \"" (file-name-nondirectory file-path) "\"\n"
              "plot "
              (let ((cols (mapcar (lambda (x)
                                    (+ 2 (string-to-number x)))
