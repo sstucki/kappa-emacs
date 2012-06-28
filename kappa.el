@@ -46,9 +46,6 @@
 ;; * Fix comment font-lock weirdness.
 ;; * Support for indentation and slashification. Hard.
 ;; * Documentation.
-;; * Remove dependency on sed(1). Yes, this is a hack. Sorry.
-;;   To solve this the best way would be to ask Jean to remove
-;;   the '#' from KaSim's output
 
 
 ;;; Customization stuff
@@ -222,7 +219,7 @@ of `kappa-run-sim'.")
 (defvar kappa-prev-sim-points kappa-default-sim-points
   "Value of the `points' argument during the previous invocation
 of `kappa-run-sim'.")
-(defvar kappa-prev-plot-columns "1"
+(defvar kappa-prev-plot-columns "1:2"
   "Value of the `columns' argument during the previous invocation
 of `kappa-plot-sim'.")
 
@@ -418,7 +415,9 @@ Related variables: `kappa-sim-executable-path',
   (setq kappa-prev-sim-events events)
   (setq kappa-prev-sim-points points)
 
-  ;; FIXME: Would be nice to eliminate the dependency on sed(1).
+  ;; The "--emacs-mode" flag suppresses the generation of an initial
+  ;; "#" in front of the column header names on the first line of the
+  ;; output file so that Gnuplot can parse them.
   (let ((command (concat kappa-sim-executable-path " -i " input
                          " -o " (file-name-nondirectory output)
                          " -d " (get-abs-dirname output)
@@ -427,7 +426,7 @@ Related variables: `kappa-sim-executable-path',
                            ((> events 0) (format " -e %s" events)))
                          (when points
                            (format " -p %s" points))
-                         " && sed -i s/^#// " output "&"))
+                         " --emacs-mode &"))
         (buffer-name (concat "*Simulation (" (file-name-nondirectory input)
                              ") " (number-to-string kappa-sim-buffer-counter)
                              "*")))
@@ -456,7 +455,8 @@ Related variables: `kappa-sim-executable-path',
             headers for each column.
 
   COLUMNS is a string containing the columns to be plotted
-          separated by space.
+          separated by space.  Default is \"1:2\" plotting the
+          first column (time) against the second one.
 
 By default the following options would be set in gnuplot:
 autoscale, xtic auto, ytic auto, key autotitle columnhead,
@@ -495,13 +495,9 @@ required for plotting.")
              "set xlabel \"Time\"\n"
              "set title \"" (file-name-nondirectory file-path) "\"\n"
              "plot "
-             (let ((cols (mapcar (lambda (x)
-                                   (+ 2 (string-to-number x)))
-                                 (split-string columns))))
-               (mapconcat (lambda (n)
-                            (concat "\'" file-path "\' using 1:"
-                                    (number-to-string n) " with lines"))
-                          cols ", ")) "\n")
+             (mapconcat
+              (lambda (n) (concat "\'" file-path "\' using " n " with lines"))
+              (split-string columns) ", ") "\n")
      nil)))
 
 
