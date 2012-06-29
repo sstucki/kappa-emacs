@@ -180,7 +180,9 @@ variables in Font-Lock mode."
   "Face for making a cellbreak on ## comment lines in Kappa mode.")
 
 
-;;; Simulation related customization variables
+;;; Simulation and plotting-related variables
+
+;; Customization variables
 
 (defcustom kappa-sim-executable-path "/usr/bin/KaSim"
   "File system path to the Kappa simulator executable (default is
@@ -203,9 +205,16 @@ variables in Font-Lock mode."
   :type 'number
   :group 'kappa)
 
+(defcustom kappa-gnuplot-executable-path "/usr/bin/gnuplot"
+  "File system path to the Gnuplot executable (default is
+'/usr/bin/gnuplot')."
+  :type 'file
+  :group 'kappa)
+
 
 ;; Buffer-local variables to remember the values of the arguments of
 ;; previous invocation of `kappa-run-sim' and `kappa-plot-sim'.
+
 (defvar kappa-prev-sim-output-file ""
   "Value of the `output' or `file-path' argument during the
 previous invocation of `kappa-run-sim' or `kappa-plot-sim',
@@ -222,6 +231,18 @@ of `kappa-run-sim'.")
 (defvar kappa-prev-plot-columns "1:2"
   "Value of the `columns' argument during the previous invocation
 of `kappa-plot-sim'.")
+(defvar kappa-sim-buffer-counter 1
+  "Counts the number of simulation buffers in Kappa major mode")
+
+
+;; Global variable holding Gnuplot processes object for plotting if
+;; necessary.
+
+(defvar kappa-gnuplot-process ""
+  "Process object of a running Gnuplot process.
+
+The default value is \"\", indicating that no Gnuplot process has
+been started by the Kappa major mode yet.")
 
 
 ;;; Local key map
@@ -363,7 +384,7 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
   ;; Set the default output file.
   (setq kappa-prev-sim-output-file
-        (concat (get-abs-dirname buffer-file-name) "data.out"))
+        (concat (kappa-get-abs-dirname buffer-file-name) "data.out"))
 
   ;; Install the local key map.
   (use-local-map kappa-mode-keymap))
@@ -371,10 +392,10 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
 ;;; Simulation related functions.
 
-(defvar kappa-sim-buffer-counter 1)
-
-(defun get-abs-dirname (path) 
+(defun kappa-get-abs-dirname (path)
+  "Return the absolute directory name of PATH."
   (file-name-directory (file-truename path)))
+
 
 (defun kappa-run-sim (input output time events points)
   "Input:
@@ -389,11 +410,12 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
 Output: none.
 
-Side Effects: Creates *Simulation* buffer, print the arguments
-passed to *Messages* and run `kappa-sim-executable-path' in shell
-with the appropriate arguments.
+Side Effects: Prints the shell command to be executed to
+*Messages*, Creates *Simulation* buffer, and runs
+`kappa-sim-executable-path' in shell with the appropriate
+arguments.
 
-Related variables: `kappa-sim-executable-path',
+Related customization variables: `kappa-sim-executable-path',
 `kappa-default-sim-time', `kappa-default-sim-events',
 `kappa-default-sim-points'.
 "
@@ -410,6 +432,7 @@ Related variables: `kappa-sim-executable-path',
           (read-number "Events: " kappa-prev-sim-events)
           (read-number "Points: " kappa-prev-sim-points)))
 
+  ;; Save parameters for later
   (setq kappa-prev-sim-output-file output)
   (setq kappa-prev-sim-time time)
   (setq kappa-prev-sim-events events)
@@ -420,7 +443,7 @@ Related variables: `kappa-sim-executable-path',
   ;; output file so that Gnuplot can parse them.
   (let ((command (concat kappa-sim-executable-path " -i " input
                          " -o " (file-name-nondirectory output)
-                         " -d " (get-abs-dirname output)
+                         " -d " (kappa-get-abs-dirname output)
                          (cond
                            ((> time 0)   (format " -t %s" time))
                            ((> events 0) (format " -e %s" events)))
@@ -438,7 +461,8 @@ Related variables: `kappa-sim-executable-path',
               (error "%s" (concat "Output file " output " has not been "
                                   "overwritten"))))
 
-    (message "Simulation command executed: %s\n" command) ; save the command to *Message* buffer
+    ;; Save the command to *Message* buffer and run the simulation
+    (message "Running simulation command: %s\n" command)
     (shell-command command (get-buffer-create buffer-name))
 
     (setq kappa-sim-buffer-counter (+ 1 kappa-sim-buffer-counter))
@@ -447,27 +471,70 @@ Related variables: `kappa-sim-executable-path',
 
 ;;; Gnuplot related functions.
 
+(defun kappa-get-gnuplot-process nil
+  "Return the process object of the Gnuplot process associated
+with the Kappa major mode.
+
+This function requires the installation of Gnuplot.  You can find
+it at
+
+  * http://www.gnuplot.info/
+
+Side Effects: If `kappa-gnuplot-process' does not correspond to a
+process object (no running Gnuplot process is currently
+associated with the Kappa major mode), starts an asynchronous
+process using the command `kappa-gnuplot-executable-path' and
+returns the corresponding process object.  If
+`kappa-gnuplot-process' refers to an existing Gnuplot process
+with a status other than `run', kills it, starts a new
+asynchronous Gnuplot process and returns the new process object.
+In either case, prints the command to be executed to *Messages*,
+creates a *Kappa Gnuplot output* buffer (if none exists) and sets
+`kappa-gnuplot-process' to the process object associated with the
+newly started process.
+
+Related variables: `kappa-gnuplot-executable-path',
+`kappa-gnuplot-process'.
+"
+  (let ((status (process-status kappa-gnuplot-process)))
+    (if (eq status 'run) kappa-gnuplot-process
+
+      ;; Kill a potentially "hanging" process.
+      (if (not (null status)) (delete-process kappa-gnuplot-process))
+
+      ;; Start a new asynchronous Gnuplot process.
+      (message "Running Gnuplot as '%s -p'" kappa-gnuplot-executable-path)
+      (setq kappa-gnuplot-process
+            (start-process "gnuplot"
+                           (get-buffer-create "*Kappa Gnuplot output*")
+                           kappa-gnuplot-executable-path "-p")))))
+
+
 (defun kappa-plot-sim (&optional file-path columns)
   "Simple function for plotting a Kappa simulation file.
 
   FILE-PATH is the full path to a file that can be read by
-            gnuplot.  The first row is expected to contain the
+            Gnuplot.  The first row is expected to contain the
             headers for each column.
 
   COLUMNS is a string containing the columns to be plotted
           separated by space.  Default is \"1:2\" plotting the
           first column (time) against the second one.
 
-By default the following options would be set in gnuplot:
+By default the following options would be set in Gnuplot:
 autoscale, xtic auto, ytic auto, key autotitle columnhead,
 ylabel \"Number of Molecules\", xlabel \"Time\"
 
-This function requires the installation of gnuplot-mode. You can
-find it at
+This function requires the installation of Gnuplot and optionally
+gnuplot-mode.  You can find them at
 
-  https://github.com/bruceravel/gnuplot-mode/
+  * http://www.gnuplot.info/
+  * https://github.com/bruceravel/gnuplot-mode/
+
+Side Effects: If gnuplot-mode is available, sends commands to
+gnuplot-mode.  Otherwise, send commands to a dedicated Gnuplot
+process associated with the Kappa major mode.
 "
-
   (interactive
    (list (expand-file-name
           (read-file-name
@@ -477,17 +544,12 @@ find it at
          (read-string "Columns separated by space: "
                       kappa-prev-plot-columns)))
 
-  ;; This part requires the installation of gnuplot-mode!
-  ;; https://github.com/bruceravel/gnuplot-mode/
-  (if (not (require 'gnuplot nil t))
-      (error "Could not find Gnuplot mode! Gnuplot mode is \
-required for plotting.")
+  ;; Save parameters for later
+  (setq kappa-prev-sim-output-file file-path)
+  (setq kappa-prev-plot-columns columns)
 
-    (setq kappa-prev-sim-output-file file-path)
-    (setq kappa-prev-plot-columns columns)
-
-    (gnuplot-send-string-to-gnuplot
-     (concat "set autoscale\n"
+  (let ((gnuplot-commands
+         (concat "set autoscale\n"
              "set xtic auto\n"
              "set ytic auto\n"
              "set key autotitle columnhead\n"
@@ -496,9 +558,19 @@ required for plotting.")
              "set title \"" (file-name-nondirectory file-path) "\"\n"
              "plot "
              (mapconcat
-              (lambda (n) (concat "\'" file-path "\' using " n " with lines"))
-              (split-string columns) ", ") "\n")
-     nil)))
+              (lambda (n) (concat "\"" file-path "\" using " n " with lines"))
+              (split-string columns) ", ") "\n")))
+
+    ;; Check if gnuplot-mode is available, otherwise just run Gnuplot
+    ;; in a shell.
+    (if (require 'gnuplot nil t)
+
+        ;; Use gnuplot-mode
+        (gnuplot-send-string-to-gnuplot gnuplot-commands nil)
+
+      ;; Send the Gnuplot commands to the Gnuplot process associated
+      ;; with the Kappa major mode.
+      (process-send-string (kappa-get-gnuplot-process) gnuplot-commands))))
 
 
 (provide 'kappa)
