@@ -81,8 +81,9 @@ and \"->\" in Font-Lock mode."
 
 (defface kappa-math-operator-face
   '((t :inherit font-lock-builtin-face))
-  "Face to use for highlighting algebraic and logic operators
-such as \"+\" or \"/\" in Kappa expressions in Font-Lock mode."
+  "Face to use for highlighting Kappa operators such as \"+\",
+\"&&\" or \";\" in algebraic, logic and perturbation expressions
+in Font-Lock mode."
   :group 'faces
   :group 'kappa)
 
@@ -139,7 +140,7 @@ sites in Font-Lock mode."
 (defface kappa-string-face
   '((t :inherit font-lock-string-face))
   "Face to use for highlighting string literals such as Kappa
-variables in Font-Lock mode."
+variables and file names in Font-Lock mode."
   :group 'faces
   :group 'kappa)
 
@@ -159,7 +160,7 @@ variables in Font-Lock mode."
 (defvar kappa-rule-operator-face 'kappa-rule-operator-face
   "Face for highlighting Kappa rule operators.")
 (defvar kappa-math-operator-face 'kappa-math-operator-face
-  "Face for highlighting math operators in Kappa mode.")
+  "Face for highlighting Kappa math and perturbation operators.")
 (defvar kappa-interface-symbol-face 'kappa-interface-symbol-face
   "Face for highlighting Kappa agent interface symbols.")
 (defvar kappa-builtin-face 'kappa-builtin-face
@@ -280,13 +281,15 @@ been started by the Kappa major mode yet.")
        ;; Keywords
        (cons
         (regexp-opt
-         '("%agent:" "%var:" "%plot:" "%obs:" "%init:" "%mod:"))
+         '("%agent:" "%var:" "%plot:" "%obs:" "%init:" "%mod:" "do"
+           "repeat" "until"))
         kappa-keyword-face)
 
        ;; Commands
        (cons
         (regexp-opt
-         '("$ADD" "$DEL" "$SNAPSHOT" "$STOP"))
+         '("$ADD" "$DEL" "$SNAPSHOT" "$STOP" "$FLUX" "$TRACK" "$UPDATE"
+           "$PRINT"))
         kappa-command-face)
 
        ;; Built-in functions
@@ -299,8 +302,8 @@ been started by the Kappa major mode yet.")
        ;; Symbolic numerical constants
        (cons
         (regexp-opt
-         '("[E]" "[T]" "[inf]" "[pi]" "[emax]" "[tmax]" "[true]"
-           "[false]"))
+         '("[E]" "[E+]" "[E-]" "[Emax]" "[T]" "[Tsim]" "[Tmax]" "[inf]"
+           "[pi]" "[true]" "[false]"))
         kappa-constant-face)
 
        ;; Agent interface symbols
@@ -318,6 +321,9 @@ been started by the Kappa major mode yet.")
 
        ;; Variable names
        '("'[^'\n]+'" . kappa-string-face)
+
+       ;; String literals and file names
+       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
 
        ;; Agent names followed by an interface spec and site names
        (list (concat "\\(" id "\\)" ws "(")      ;; Agents
@@ -341,8 +347,8 @@ been started by the Kappa major mode yet.")
        ;; Rule operators
        '("@\\|->" . kappa-rule-operator-face)
 
-       ;; Math operators
-       '("&&\\|||\\|[+*/^:=<>-]" . kappa-math-operator-face))))
+       ;; Math/perturbation expression operators
+       '("&&\\|||\\|[+*/^:=<>.;-]" . kappa-math-operator-face))))
 
   ;; File suffixes for which to activate this mode 
   '("\\.ka\\'")
@@ -559,7 +565,7 @@ process associated with the Kappa major mode.
              "plot "
              (mapconcat
               (lambda (n) (concat "\"" file-path "\" using " n " with lines"))
-              (split-string columns) ", ") "\n")))
+              (split-string columns) ", \\\n") "\n")))
 
     ;; Check if gnuplot-mode is available, otherwise just run Gnuplot
     ;; in a shell.
