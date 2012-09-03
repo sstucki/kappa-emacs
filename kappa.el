@@ -27,11 +27,13 @@
 
 ;;; Commentary:
 
-;; A major mode for editing Kappa models.  The mode knows enough about
-;; Kappa syntax to do some basic fontification but does currently not
-;; do indentation or proper slashification.
+;; `kappa-mode` is a GNU/Emacs major mode for editing files written in
+;; the Kappa modeling language.  The mode knows enough about Kappa
+;; syntax to do some basic fontification but does currently not do
+;; indentation or proper slashification.
 
-;; There are numerous font face customization variables.
+;; There are numerous font face customization variables and two
+;; convenience functions for running simulations and plotting results.
 
 
 ;;; Known bugs/limitations:
@@ -95,7 +97,7 @@ such as \"!\" or \"~\" in Font-Lock mode."
   :group 'kappa)
 
 (defface kappa-builtin-face
-  '((t :inherit font-lock-constant-face))
+  '((t :inherit font-lock-builtin-face))
   "Face to use for highlighting built-in functions such as
 \"[sin]\" or \"[mod]\" in Kappa expressions in Font-Lock mode."
   :group 'faces
@@ -137,6 +139,13 @@ sites in Font-Lock mode."
   :group 'faces
   :group 'kappa)
 
+(defface kappa-token-name-face
+  '((t :inherit font-lock-variable-name-face))
+  "Face to use for highlighting Kappa token names in Font-Lock
+mode."
+  :group 'faces
+  :group 'kappa)
+
 (defface kappa-string-face
   '((t :inherit font-lock-string-face))
   "Face to use for highlighting string literals such as Kappa
@@ -175,6 +184,8 @@ variables and file names in Font-Lock mode."
   "Face for highlighting Kappa link labels.")
 (defvar kappa-internal-state-face 'kappa-internal-state-face
   "Face for highlighting Kappa internal state names.")
+(defvar kappa-token-name-face 'kappa-token-name-face
+  "Face for highlighting Kappa token names.")
 (defvar kappa-string-face 'kappa-string-face
   "Face for highlighting string literals in Kappa mode.")
 (defvar kappa-cellbreak-face 'kappa-cellbreak-face
@@ -268,7 +279,7 @@ been started by the Kappa major mode yet.")
   (eval-when-compile
     (let
         ;; Common lexical sub-expressions used in keywords
-        ((id "[A-Za-z0-9][A-Za-z0-9_-]*")   ;; IDs/names as defined in
+        ((id "[A-Za-z][A-Za-z0-9_+-]*")     ;; IDs/names as defined in
                                             ;; the Kappa spec
          (num "[0-9]+")                     ;; Integer numerals
          (ws "[ \t]*"))                     ;; Whitespace
@@ -281,8 +292,8 @@ been started by the Kappa major mode yet.")
        ;; Keywords
        (cons
         (regexp-opt
-         '("%agent:" "%var:" "%plot:" "%obs:" "%init:" "%mod:" "do"
-           "repeat" "until"))
+         '("%agent:" "%def:" "%var:" "%plot:" "%obs:" "%init:" "%mod:"
+           "%token:" "do" "repeat" "until"))
         kappa-keyword-face)
 
        ;; Commands
@@ -326,17 +337,23 @@ been started by the Kappa major mode yet.")
        '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
 
        ;; Agent names followed by an interface spec and site names
-       (list (concat "\\(" id "\\)" ws "(")      ;; Agents
+       (list (concat "\\(" id "\\)" ws "(")    ;; Agents
              '(1 kappa-agent-name-face)
-             (list                                ;; Site interface
+             (list                             ;; Site interface
               (concat "\\=" ws "\\(" id "\\)[^,)\n]*"
                       "\\(," ws "\\([^A-Za-z0-9,)\n][^,)\n]*\\)?\\)*")
               nil nil
               '(1 kappa-site-name-face)))
 
+       ;; Token names
+       (list (concat ":" ws "\\(" id "\\)") 1 kappa-token-name-face)
+
+       ;; Token concentrations
+       (cons (concat "|" ws id ws "|") kappa-token-name-face)
+
        ;; Numerals
-       (cons (concat "\\<\\(\\(" num "\\)?\\." num "\\([Ee][+-]?" num
-                     "\\)?\\|" num "\\)\\>")
+       (cons (concat "[+-]?\\(\\<" num "\\(\\.[0-9]*\\)?"
+                     "\\|\\." num "\\)\\([Ee][+-]?" num "\\)?\\>")
              kappa-constant-face)
 
        ;; Agent names not followed by an interface spec (all
@@ -344,11 +361,14 @@ been started by the Kappa major mode yet.")
        (cons id kappa-agent-name-face)
        ;; '("\\.\\.\\." . kappa-agent-name-face)
 
-       ;; Rule operators
-       '("@\\|->" . kappa-rule-operator-face)
+       ;; Two-character logic/perturbation expression operators
+       '("&&\\|||\\|:=" . kappa-math-operator-face)
 
-       ;; Math/perturbation expression operators
-       '("&&\\|||\\|[+*/^:=<>.;-]" . kappa-math-operator-face))))
+       ;; Rule operators
+       '("|\\|->\\|<-\\|<->\\|@" . kappa-rule-operator-face)
+
+       ;; Other logic/math/perturbation expression operators
+       '("[+*/^<>=.;-]" . kappa-math-operator-face))))
 
   ;; File suffixes for which to activate this mode 
   '("\\.ka\\'")
@@ -357,6 +377,27 @@ been started by the Kappa major mode yet.")
   '(kappa-mode-setup)
 
   "Major mode for editing Kappa models.
+
+The syntax highlighting is quite intense by default (almost every
+character is highlighted in some way) but also highly customizable.
+Users that are unhappy with the default font lock color scheme may
+change it through the numerous font face customization variables
+(`kappa-keyword-face', `kappa-agent-name-face',
+`kappa-rule-operator-face', etc.)
+
+In addition to the syntax highlighting, the mode provides two
+convenience functions, `kappa-run-sim' and `kappa-plot-sim', for
+simulating the current Kappa file and plotting the result,
+respectively.  In order to work properly, they require the
+installation of a Kappa simulator such as KaSim and Gnuplot.  The
+executable paths of these tools can be adjusted through the
+customization variables `kappa-sim-executable-path' and
+`kappa-gnuplot-executable-path' respectively.  gnuplot-mode will
+be used for plotting if present but is not a requirement.
+
+ * KaSim        -- https://github.com/jkrivine/KaSim/
+ * Gnuplot      -- http://www.gnuplot.info/
+ * gnuplot-mode -- https://github.com/bruceravel/gnuplot-mode/
 
 \\{kappa-mode-keymap}
 Turning on Kappa mode runs the hook `kappa-mode-hook'.
