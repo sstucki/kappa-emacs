@@ -296,6 +296,12 @@ been started by the Kappa major mode yet.")
            "%token:" "do" "repeat" "until"))
         kappa-keyword-face)
 
+       ;; Variable names
+       '("'[^'\n]+'" . kappa-string-face)
+
+       ;; String literals and file names
+       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
+
        ;; Commands
        (cons
         (regexp-opt
@@ -329,12 +335,6 @@ been started by the Kappa major mode yet.")
                      "\\|" id ws "\\." ws id   ;; Remote site name
                      "\\|" ws "_\\)")          ;; Wildcard
              1 kappa-link-label-face)
-
-       ;; Variable names
-       '("'[^'\n]+'" . kappa-string-face)
-
-       ;; String literals and file names
-       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
 
        ;; Agent names followed by an interface spec and site names
        (list (concat "\\(" id "\\)" ws "(")    ;; Agents
