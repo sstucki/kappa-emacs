@@ -289,18 +289,18 @@ been started by the Kappa major mode yet.")
        ;; ## comments
        '("^\\s-*\\(\##.*\\)$" 1 kappa-cellbreak-face t)
 
+       ;; String literals and file names
+       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
+
+       ;; Variable names
+       '("'[^'\n]+'" . kappa-string-face)
+
        ;; Keywords
        (cons
         (regexp-opt
          '("%agent:" "%def:" "%var:" "%plot:" "%obs:" "%init:" "%mod:"
            "%token:" "do" "repeat" "until"))
         kappa-keyword-face)
-
-       ;; Variable names
-       '("'[^'\n]+'" . kappa-string-face)
-
-       ;; String literals and file names
-       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
 
        ;; Commands
        (cons
