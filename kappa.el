@@ -279,7 +279,8 @@ been started by the Kappa major mode yet.")
   (eval-when-compile
     (let
         ;; Common lexical sub-expressions used in keywords
-        ((id "[A-Za-z][A-Za-z0-9_+-]*")     ;; IDs/names as defined in
+        ((alnum "[A-Za-z0-9_+-]+")          ;; Alpha-numeric IDs
+         (id "[A-Za-z][A-Za-z0-9_+-]*")     ;; IDs/names as defined in
                                             ;; the Kappa spec
          (num "[0-9]+")                     ;; Integer numerals
          (ws "[ \t]*"))                     ;; Whitespace
@@ -327,7 +328,13 @@ been started by the Kappa major mode yet.")
        '("[?!~]" . kappa-interface-symbol-face)
 
        ;; Internal state names
-       (list (concat "~" ws "\\(" id "\\)")
+       ;;
+       ;; NOTE: Highlighting slightly diverges from the spec here:
+       ;; according to the KaSim manual, an internal state name is
+       ;; just an ID, excluding e.g. names starting with digits.
+       ;; However, any alphanumeric ID prefixed by a tilde will be
+       ;; highlighted as an internal state name by kappa-mode.
+       (list (concat "~" ws "\\(" alnum "\\)")
              1 kappa-internal-state-face)
 
        ;; Link labels
