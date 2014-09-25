@@ -71,4 +71,4 @@ Known issues
    CEDET causing Emacs to fontify the entire buffer with
    font-lock-comment-face.
 
- * Indentation and slashification are missing.
+ * Support for automatic indentation is missing.

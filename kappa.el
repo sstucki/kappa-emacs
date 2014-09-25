@@ -283,7 +283,7 @@ been started by the Kappa major mode yet.")
          (id "[A-Za-z][A-Za-z0-9_+-]*")     ;; IDs/names as defined in
                                             ;; the Kappa spec
          (num "[0-9]+")                     ;; Integer numerals
-         (ws "[ \t]*"))                     ;; Whitespace
+         (ws "\\(?:\\s-\\|\\\\\n\\)*"))     ;; Whitespace
 
       (list
 
@@ -291,7 +291,7 @@ been started by the Kappa major mode yet.")
        '("^\\s-*\\(\##.*\\)$" 1 kappa-cellbreak-face t)
 
        ;; String literals and file names
-       '("\"\\([^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
+       '("\"\\(?:[^\"\n]\\|\\\\[\"\n]\\)+\"" . kappa-string-face)
 
        ;; Variable names
        '("'[^'\n]+'" . kappa-string-face)
@@ -347,9 +347,8 @@ been started by the Kappa major mode yet.")
        (list (concat "\\(" id "\\)" ws "(")    ;; Agents
              '(1 kappa-agent-name-face)
              (list                             ;; Site interface
-              (concat "\\=" ws "\\(" id "\\)[^,)\n]*"
-                      "\\(," ws "\\([^A-Za-z0-9,)\n][^,)\n]*\\)?\\)*")
-              nil nil
+              (concat "\\=[^A-Za-z)]*\\(" id "\\)[^,)]*")
+              '(kappa-get-end-of-multiline) nil
               '(1 kappa-site-name-face)))
 
        ;; Token names
@@ -377,7 +376,7 @@ been started by the Kappa major mode yet.")
        ;; Other logic/math/perturbation expression operators
        '("[+*/^<>=.;-]" . kappa-math-operator-face))))
 
-  ;; File suffixes for which to activate this mode 
+  ;; File suffixes for which to activate this mode
   '("\\.ka\\'")
 
   ;; Activate Kappa mode key map.
@@ -413,7 +412,7 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 (defun kappa-mode-setup ()
   "Set up the Kappa major mode."
 
-  ;; Make variables buffer-local and set standard output file.
+  ;; Make variables buffer-local.
   (mapc 'make-local-variable
         '(kappa-keyword-face
           kappa-command-face
@@ -440,11 +439,67 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
   (setq kappa-prev-sim-output-file
         (concat (kappa-get-abs-dirname buffer-file-name) "data.out"))
 
+  ;; Make sure multiline expressions are identified and re-highlighted
+  ;; correctly.
+  (add-to-list 'font-lock-extend-region-functions
+               'kappa-extend-font-lock-region-to-multiline t)
+
   ;; Install the local key map.
   (use-local-map kappa-mode-keymap))
 
 
-;;; Simulation related functions.
+;;; Font-lock-related functions.
+
+(defun kappa-move-to-beginning-of-multiline ()
+  "Move to the beginning of the first line before `point' that
+doesn't end in a backslash."
+  (interactive)
+  (beginning-of-line)
+  (while (and (not (bobp))
+              (= (save-excursion (end-of-line 0) (preceding-char)) ?\\))
+    (beginning-of-line 0)))
+
+(defun kappa-move-to-end-of-multiline ()
+  "Move to the beginning of the first line after `point' that
+doesn't immediately follow a backslash."
+  (interactive)
+  (if (not (bolp)) (beginning-of-line 2))
+  (while (and (not (eobp))
+              (= (save-excursion (end-of-line 0) (preceding-char)) ?\\))
+    (beginning-of-line 2)))
+
+(defun kappa-get-end-of-multiline ()
+  "Return the position of the end of the first line after `point'
+that doesn't end in a backslash."
+  (save-excursion
+    (kappa-move-to-end-of-multiline)
+    (point)))
+
+(defun kappa-extend-font-lock-region-to-multiline ()
+  "Extend the font-lock fontify region to the beginning of the
+first line before `font-lock-beg' that doesn't end in a backslash
+and to the beginning of the first line after `font-lock-end' that
+doesn't immediately follow a backslash."
+  (let ((new-beg                      ; find new start position
+         (save-excursion
+           (goto-char font-lock-beg)
+           (kappa-move-to-beginning-of-multiline)
+           (point)))
+        (new-end                      ; find new end position
+         (save-excursion
+           (goto-char font-lock-end)
+           (kappa-move-to-end-of-multiline)
+           (point))))
+    (let ((updated-beg                ; update start position?
+           (if (= new-beg font-lock-beg) nil
+             (setq font-lock-beg new-beg) t))
+          (updated-end                ; update end position?
+           (if (= new-end font-lock-end) nil
+             (setq font-lock-end new-end) t)))
+      (or updated-beg updated-end))))
+
+
+;;; Simulation-related functions.
 
 (defun kappa-get-abs-dirname (path)
   "Return the absolute directory name of PATH."
