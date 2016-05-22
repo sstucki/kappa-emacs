@@ -2,9 +2,9 @@ kappa-mode
 ==========
 
 `kappa-mode` is a GNU/Emacs major mode for editing files written in
-the Kappa modeling language.  The mode knows enough about Kappa syntax
-to do some basic fontification but does currently not do indentation
-or proper slashification.
+the [Kappa modeling language](http://kappalanguage.org/).  The mode
+knows enough about Kappa syntax to do some basic fontification but
+does currently not do indentation or proper slashification.
 
 
 Getting `kappa-mode`
@@ -45,7 +45,7 @@ In addition to the syntax highlighting, the mode provides two
 convenience functions for simulating the current Kappa file
 (`kappa-run-sim`, mapped to `C-c C-r`) and plotting the result
 (`kappa-plot-sim`, mapped to `C-c C-p`).  The former requires
-[KaSim](https://github.com/jkrivine/KaSim/) and the later
+[KaSim](https://github.com/Kappa-Dev/KaSim/) and the later
 [Gnuplot](http://www.gnuplot.info/) to be installed.  The executable
 paths of these tools can be adjusted through the customization
 variables `kappa-sim-executable-path` and

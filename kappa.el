@@ -300,28 +300,28 @@ been started by the Kappa major mode yet.")
        (cons
         (regexp-opt
          '("%agent:" "%def:" "%var:" "%plot:" "%obs:" "%init:" "%mod:"
-           "%token:" "do" "repeat" "until"))
+           "%token:" "do" "set" "repeat" "until"))
         kappa-keyword-face)
 
        ;; Commands
        (cons
         (regexp-opt
-         '("$ADD" "$DEL" "$SNAPSHOT" "$STOP" "$FLUX" "$TRACK" "$UPDATE"
-           "$PRINT"))
+         '("$ADD" "$DEL" "$FLUX" "$PLOTENTRY" "$PRINT" "$PRINTF"
+           "$SNAPSHOT" "$STOP" "$TRACK" "$UPDATE"))
         kappa-command-face)
 
        ;; Built-in functions
        (cons
         (regexp-opt
-         '("[not]" "[log]" "[sin]" "[cos]" "[tan]" "[sqrt]" "[mod]"
-           "[exp]" "[int]"))
+         '("[cos]" "[exp]" "[int]" "[log]" "[max]" "[min]" "[mod]"
+           "[not]" "[sin]" "[sqrt]" "[tan]"))
         kappa-builtin-face)
 
        ;; Symbolic numerical constants
        (cons
         (regexp-opt
-         '("[E]" "[E+]" "[E-]" "[Emax]" "[T]" "[Tsim]" "[Tmax]" "[inf]"
-           "[pi]" "[true]" "[false]"))
+         '("[E]" "[E+]" "[E-]" "[Emax]" "[T]" "[Tmax]" "[Tsim]"
+           "[false]" "[p]" "[pi]" "[true]" "INF"))
         kappa-constant-face)
 
        ;; Agent interface symbols
