@@ -437,7 +437,7 @@ Turning on Kappa mode runs the hook `kappa-mode-hook'.
 
   ;; Set the default output file.
   (setq kappa-prev-sim-output-file
-        (concat (kappa-get-abs-dirname buffer-file-name) "data.out"))
+        (concat (kappa-get-abs-dirname buffer-file-name) "data.csv"))
 
   ;; Make sure multiline expressions are identified and re-highlighted
   ;; correctly.
@@ -547,18 +547,16 @@ Related customization variables: `kappa-sim-executable-path',
   (setq kappa-prev-sim-events events)
   (setq kappa-prev-sim-points points)
 
-  ;; The "--emacs-mode" flag suppresses the generation of an initial
-  ;; "#" in front of the column header names on the first line of the
-  ;; output file so that Gnuplot can parse them.
+  ;; Construct the command line and try running the simulator in a
+  ;; separate buffer.
   (let ((command (concat kappa-sim-executable-path " -i " input
                          " -o " (file-name-nondirectory output)
                          " -d " (kappa-get-abs-dirname output)
                          (cond
-                           ((> time 0)   (format " -t %s" time))
-                           ((> events 0) (format " -e %s" events)))
+                           ((> time 0)   (format " -u time -l %s" time))
+                           ((> events 0) (format " -u event -l %s" events)))
                          (when points
-                           (format " -p %s" points))
-                         " --emacs-mode &"))
+                           (format " -p %s" points))))
         (buffer-name (concat "*Simulation (" (file-name-nondirectory input)
                              ") " (number-to-string kappa-sim-buffer-counter)
                              "*")))

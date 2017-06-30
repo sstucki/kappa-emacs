@@ -30,6 +30,11 @@ command:
 
     (load-file "~/.emacs.d/kappa.el")
 
+If you are using a version of KaSim older than KaSim 4, use the
+`kappa.el` file from the `KaSim3-compat` branch
+[here](https://github.com/sstucki/kappa-emacs/tree/KaSim3-compat)
+instead.
+
 
 Usage and customization
 -----------------------
