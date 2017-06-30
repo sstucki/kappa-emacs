@@ -549,31 +549,40 @@ Related customization variables: `kappa-sim-executable-path',
 
   ;; Construct the command line and try running the simulator in a
   ;; separate buffer.
-  (let ((command (concat kappa-sim-executable-path " -i " input
-                         " -o " (file-name-nondirectory output)
-                         " -d " (kappa-get-abs-dirname output)
-                         (cond
-                           ((> time 0)   (format " -u time -l %s" time))
-                           ((> events 0) (format " -u event -l %s" events)))
-                         (when points
-                           (format " -p %s" points))))
+  (let ((args (append (list "-i" input
+                            "-o" (file-name-nondirectory output)
+                            "-d" (kappa-get-abs-dirname output))
+                      (cond
+                       ((> time 0)   (list "-u" "time" "-l"
+                                           (number-to-string time)))
+                       ((> events 0) (list "-u" "event" "-l"
+                                           (number-to-string events))))
+                      (when points
+                        (list "-p" (number-to-string points)))))
         (buffer-name (concat "*Simulation (" (file-name-nondirectory input)
                              ") " (number-to-string kappa-sim-buffer-counter)
                              "*")))
 
     (when (file-exists-p output)
-          (if (y-or-n-p (concat "Output file '" output "' exists. Would you like to "
-                                "delete it to run the simulation?"))
-              (delete-file output)
-              (error "%s" (concat "Output file " output " has not been "
-                                  "overwritten"))))
+      (if (y-or-n-p (concat "Output file '" output
+                            "' exists. Would you like to delete it to run "
+                            "the simulation?"))
+          (delete-file output)
+        (error "%s" (concat "Output file " output
+                            " has not been overwritten"))))
 
     ;; Save the command to *Message* buffer and run the simulation
-    (message "Running simulation command: %s\n" command)
-    (shell-command command (get-buffer-create buffer-name))
+    (message "Running simulation process: %s %s"
+             kappa-sim-executable-path (mapconcat 'identity args " "))
+    (let ((out-buffer (get-buffer-create buffer-name)))
+      (display-buffer out-buffer)
+      (apply 'call-process
+             (append (list kappa-sim-executable-path nil out-buffer t)
+                     args)))
 
     (setq kappa-sim-buffer-counter (+ 1 kappa-sim-buffer-counter))
-    (format (concat "Done! See " buffer-name " buffer for details"))))
+    (message (format (concat "Done! See " buffer-name
+                             " buffer for details")))))
 
 
 ;;; Gnuplot related functions.
