@@ -672,6 +672,7 @@ process associated with the Kappa major mode.
              "set ylabel \"Number of Molecules\"\n"
              "set xlabel \"Time\"\n"
              "set title \"" (file-name-nondirectory file-path) "\"\n"
+             "set datafile separator \",\"\n"
              "plot "
              (mapconcat
               (lambda (n) (concat "\"" file-path "\" using " n " with lines"))
